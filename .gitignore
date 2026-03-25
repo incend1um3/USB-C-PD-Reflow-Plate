@@ -1,0 +1,17 @@
+# KiCad
+*.kicad_prl
+*-backups/
+fp-info-cache
+*.kicad_sch-bak
+*.kicad_pcb-bak
+
+# Rust / Cargo
+firmware/target/
+
+# OS / editor junk
+.DS_Store
+Thumbs.db
+desktop.ini
+*.swp
+*.swo
+*~

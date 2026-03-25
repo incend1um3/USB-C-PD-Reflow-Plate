@@ -1,0 +1,14 @@
+[target.'cfg(all(target_arch = "arm", target_os = "none"))']
+runner = "probe-rs run --chip STM32G431KB"
+
+[build]
+target = "thumbv7em-none-eabihf"
+
+[target.thumbv7em-none-eabihf]
+rustflags = [
+  "-C", "target-cpu=cortex-m4",
+  "-C", "target-feature=+vfp4,+dsp"
+]
+
+[env]
+DEFMT_LOG = "trace"
