@@ -1,5 +1,5 @@
 ﻿Name,Comment,Price ($USD),Link
-PCB Components,Detailed BOM in production/bom.csv,$27.97,
+PCB Components,Detailed BOM in production/bom.csv,$25.63,
 "1.3"" SSD1315 OLED Display",,$2.43,https://www.aliexpress.com/item/1005008365029314.html
 Glass NTC Thermistor,Must be able to withstand at least 250C,$4.03,https://www.aliexpress.com/item/1005008996648273.html
 Kapton Tape,For attaching the thermistor to the heating element,$2.72,https://www.aliexpress.com/item/33036160119.html
@@ -13,6 +13,6 @@ JLCPCB (Controller Board),,$7.00,
 JLCPCBA (Controller Board),,$14.53,
 JLCPCB (Heating Element),,$12.40,
 JLC3DP (SLS 1172Pro Nylon),,$48.05,
-JLC Shipping,,$41.97,
+JLC Shipping,,$44.70,
 LCSC Shipping,,$14.80,
 Total,,$199.00

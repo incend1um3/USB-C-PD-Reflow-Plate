@@ -7,7 +7,7 @@
 </h1>
 
 <h4 align="center">
-A DIY PCB Reflow Plate. Accepts 300W from a DC power source, or 120W from USB PD.
+A DIY PCB Reflow Plate. Accepts 300W from a DC power source, or 110W from USB PD.
 </h4>
 
 <div align="center">
@@ -28,7 +28,7 @@ A DIY PCB Reflow Plate. Accepts 300W from a DC power source, or 120W from USB PD
 ## Key Features
 
 - **Split design** that allows you to manufacture the heater PCB using aluminum
-- Accepts **USB-C PD (up to 120W)** or **DC supply (up to 300W)**
+- Accepts **USB-C PD (up to 110W)** or **DC supply (up to 300W)**
 - **STM32G431KBT6 microcontroller** with support for flashing over USB and SWD
 - **1.3" OLED display** for selecting alloys and showing progress
 - **40 KHz PWM power delivery** to the heating element + a **970μF capacitor bank** to keep the average current under power supply limits
@@ -90,7 +90,7 @@ The list of PCB components can be found [here.](production/Reflow%20Plate%20Cont
 
 | Name | Comment | Price ($USD) | Link |
 |------|---------|--------------|------|
-| PCB Components | Detailed BOM in production/Reflow Plate Controller/BOM-Reflow Plate Controller.csv | $27.97 |  |
+| PCB Components | Detailed BOM in production/Reflow Plate Controller/BOM-Reflow Plate Controller.csv | $25.63 |  |
 | "1.3"" SSD1315 OLED Display" |  | $2.43 | <https://www.aliexpress.com/item/1005008365029314.html> |
 | Glass NTC Thermistor | Must be able to withstand at least 250C | $4.03 | <https://www.aliexpress.com/item/1005008996648273.html> |
 | Kapton Tape | For attaching the thermistor to the heating element | $2.72 | <https://www.aliexpress.com/item/33036160119.html> |
@@ -104,7 +104,7 @@ The list of PCB components can be found [here.](production/Reflow%20Plate%20Cont
 | JLCPCBA (Controller Board) |  | $14.53 |  |
 | JLCPCB (Heating Element) |  | $12.40 |  |
 | JLC3DP (SLS 1172Pro Nylon) |  | $48.05 |  |
-| JLC Shipping |  | $41.97 |  |
+| JLC Shipping |  | $44.70 |  |
 | LCSC Shipping |  | $14.80 |  |
 | Total |  | $199 |  |
 

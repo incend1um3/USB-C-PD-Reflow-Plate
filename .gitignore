@@ -4,6 +4,8 @@
 fp-info-cache
 *.kicad_sch-bak
 *.kicad_pcb-bak
+*kicad_pro.lck
+.history/
 
 # Rust / Cargo
 firmware/target/
