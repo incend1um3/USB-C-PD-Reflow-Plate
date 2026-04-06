@@ -72,7 +72,7 @@ The calculated resistance at 20°C is approximately 2.68Ω. The actual resistanc
 
 ## Chassis
 
-The chassis is made in Fusion360 and is designed to be printed using SLS/MJF nylon at JLC3DP. It occupies a bounding box of 225x166x75 mm and a total volume of 136 cm³.
+The chassis is made in Fusion360 and is designed to be printed using SLS/MJF nylon at JLC3DP. It occupies a bounding box of 220x166x73 mm and a total volume of 179 cm³.
 
 ![Chassis](media/chassis.png)
 
@@ -90,8 +90,8 @@ The list of PCB components can be found [here.](production/Reflow%20Plate%20Cont
 
 | Name | Comment | Price ($USD) | Link |
 |------|---------|--------------|------|
-| PCB Components | Detailed BOM in production/Reflow Plate Controller/BOM-Reflow Plate Controller.csv | $25.63 |  |
-| "1.3"" SSD1315 OLED Display" |  | $2.43 | <https://www.aliexpress.com/item/1005008365029314.html> |
+| PCB Components | | $25.63 | production/Reflow Plate Controller/BOM-Reflow Plate Controller.csv |
+| 1.3" SSD1315 OLED Display | | $2.43 | <https://www.aliexpress.com/item/1005008365029314.html> |
 | Glass NTC Thermistor | Must be able to withstand at least 250C | $4.03 | <https://www.aliexpress.com/item/1005008996648273.html> |
 | Kapton Tape | For attaching the thermistor to the heating element | $2.72 | <https://www.aliexpress.com/item/33036160119.html> |
 | XT30 Female Connector | For connecting the controller to the heating element | $2.17 | <https://www.aliexpress.com/item/1005011848365155.html> |
@@ -99,14 +99,15 @@ The list of PCB components can be found [here.](production/Reflow%20Plate%20Cont
 | M3 Ceramic Washers | For insulation | $10.07 | <https://www.aliexpress.com/item/1005006898159426.html> |
 | M3x45 Stainless Steel Standoffs | For insulation and attaching the heating element to the chassis | $2.55 | <https://www.aliexpress.com/item/1005010143571846.html> |
 | M3x8 Screws | For attaching the controller PCB to the chassis | $1.61 | <https://www.aliexpress.com/item/1005010666684312.html> |
-| M3x5x5 Heat Set Inserts |  | $1.28 | <https://www.aliexpress.com/item/1005010449185019.html> |
-| JLCPCB (Controller Board) |  | $7.00 |  |
-| JLCPCBA (Controller Board) |  | $14.53 |  |
-| JLCPCB (Heating Element) |  | $12.40 |  |
-| JLC3DP (SLS 1172Pro Nylon) |  | $48.05 |  |
-| JLC Shipping |  | $44.70 |  |
-| LCSC Shipping |  | $14.80 |  |
-| Total |  | $199 |  |
+| M3x5x5 Heat Set Inserts | | $1.28 | <https://www.aliexpress.com/item/1005010449185019.html> |
+| JLCPCB (Controller Board) | | $7.00 | |
+| JLCPCBA (Controller Board) | | $14.53 | |
+| JLCPCB (Heating Element) | | $12.40 | |
+| JLC3DP (SLS 1172Pro Nylon) | | $59.95 | |
+| JLCPCB Shipping | | $16.17 | |
+| JLC3DP Shipping | | $17.07 | |
+| LCSC Shipping | | $14.80 | |
+| **Total** | | **$200.00** | |
 
 </details>
 
