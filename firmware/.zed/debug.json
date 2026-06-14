@@ -1,0 +1,20 @@
+[
+  {
+    "label": "Debug STM32 (probe-rs)",
+    "adapter": "probe-rs",
+    "request": "launch",
+    "cwd": "$ZED_WORKTREE_ROOT",
+    "server": "127.0.0.1:50000",
+    "chip": "STM32G431KB",
+    "coreConfigs": [
+      {
+        "coreIndex": 0,
+        "programBinary": "target/thumbv7em-none-eabihf/debug/reflow-plate-firmware",
+        "rttEnabled": true
+      }
+    ],
+    "flashingConfig": {
+      "flashingEnabled": true
+    }
+  }
+]

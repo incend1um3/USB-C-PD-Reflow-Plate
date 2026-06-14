@@ -11,9 +11,11 @@ use crate::ui::draw_cooling_screen;
 use defmt::{debug, info};
 use embassy_executor::Spawner;
 use embassy_futures::select::{Either, select, select_array};
-use embassy_stm32::Peri;
 use embassy_stm32::adc::{AdcChannel, AdcConfig, AnyAdcChannel, Rovsm, SampleTime, Trovs};
+use embassy_stm32::peripherals::{DMA1_CH1, DMA1_CH2, DMA1_CH4, DMA1_CH5, DMA2_CH1};
+use embassy_stm32::time::Hertz;
 use embassy_stm32::timer::simple_pwm::SimplePwmChannel;
+use embassy_stm32::{Peri, dma, gpio};
 use embassy_stm32::{
     adc::Adc,
     bind_interrupts,
@@ -25,10 +27,16 @@ use embassy_stm32::{
     timer::simple_pwm::{PwmPin, SimplePwm},
 };
 use embassy_time::{Duration, Instant, Ticker, Timer, WithTimeout};
+use embedded_graphics::mono_font::MonoTextStyle;
+use embedded_graphics::mono_font::ascii::FONT_8X13;
+use embedded_graphics::pixelcolor::BinaryColor;
 use embedded_graphics::prelude::*;
 use embedded_graphics::primitives::Rectangle;
+use embedded_graphics::text::Text;
+use embedded_layout::align::{Align, horizontal, vertical};
 use pid::Pid;
 use ssd1315::Ssd1315;
+use ssd1315::config::Ssd1315DisplayConfig;
 use ssd1315::interface::I2cDisplayInterface;
 
 use {defmt_rtt as _, panic_probe as _};
@@ -50,6 +58,11 @@ bind_interrupts!(
         EXTI2 => exti::InterruptHandler<interrupt::typelevel::EXTI2>;
         EXTI4 => exti::InterruptHandler<interrupt::typelevel::EXTI4>;
         EXTI9_5 => exti::InterruptHandler<interrupt::typelevel::EXTI9_5>;
+        DMA1_CHANNEL1 => dma::InterruptHandler<DMA1_CH1>;
+        DMA1_CHANNEL2 => dma::InterruptHandler<DMA1_CH2>;
+        DMA1_CHANNEL4 => dma::InterruptHandler<DMA1_CH4>;
+        DMA1_CHANNEL5 => dma::InterruptHandler<DMA1_CH5>;
+        DMA2_CHANNEL1 => dma::InterruptHandler<DMA2_CH1>;
     }
 );
 
@@ -57,10 +70,23 @@ bind_interrupts!(
 async fn main(spawner: Spawner) {
     let mut config = embassy_stm32::Config::default();
     config.enable_ucpd1_dead_battery = true;
-
+    use embassy_stm32::rcc::*;
+    config.rcc.pll = Some(Pll {
+        source: PllSource::HSI,
+        prediv: PllPreDiv::DIV4,
+        mul: PllMul::MUL85,
+        divp: Some(PllPDiv::DIV12),
+        divq: None,
+        // Main system clock at 170 MHz
+        divr: Some(PllRDiv::DIV2),
+    });
+    config.rcc.mux.adc12sel = mux::Adcsel::PLL1_P;
+    config.rcc.sys = Sysclk::PLL1_R;
+    config.rcc.mux.i2c1sel = mux::I2csel::SYS;
     let mut p = embassy_stm32::init(config);
 
-    spawner.must_spawn(ucpd_task(p.UCPD1, p.PB6, p.PB4, p.DMA1_CH1, p.DMA1_CH2));
+    let pd_flt = gpio::Input::new(p.PA3, Pull::None);
+    spawner.spawn(ucpd_task(p.UCPD1, p.PB6, p.PB4, p.DMA1_CH1, p.DMA1_CH2, pd_flt).unwrap());
 
     let buzzer_pin = PwmPin::new(p.PA5, OutputType::PushPull);
     let mut buzzer_pwm_driver = SimplePwm::new(
@@ -69,10 +95,11 @@ async fn main(spawner: Spawner) {
         None,
         None,
         None,
-        khz(10),
+        khz(2),
         Default::default(),
     );
     let mut buzzer = buzzer_pwm_driver.ch1();
+    buzzer.set_duty_cycle_percent(1);
 
     let plate_mosfet_pin = PwmPin::new(p.PA8, OutputType::PushPull);
     let mut plate_mosfet = SimplePwm::new(
@@ -99,37 +126,42 @@ async fn main(spawner: Spawner) {
     let mut ntc_pin = p.PA0.degrade_adc();
     let mut vsys_pin = p.PA1.degrade_adc();
 
+    let mut c = i2c::Config::default();
+    c.frequency = Hertz::khz(200);
     let display_interface = I2cDisplayInterface::new_interface(I2c::new(
-        p.I2C1,
-        p.PA15,
-        p.PB7,
-        Irqs,
-        p.DMA1_CH4,
-        p.DMA1_CH5,
-        i2c::Config::default(),
+        p.I2C1, p.PA15, p.PB7, p.DMA1_CH4, p.DMA1_CH5, Irqs, c,
     ));
 
+    info!("Initiating screen");
     let mut display = ssd1315::Ssd1315::new(display_interface);
+    display.set_custom_config(Ssd1315DisplayConfig::preset_config());
     display.init_screen();
 
     let display_area = display.bounding_box();
+    Text::new(
+        "Negotiating\nUSB-C PD",
+        Point::zero(),
+        MonoTextStyle::new(&FONT_8X13, BinaryColor::On),
+    )
+    .align_to(&display_area, horizontal::Center, vertical::Center)
+    .draw(&mut display)
+    .unwrap();
+    display.flush_screen();
 
     let mut pd_state_receiver = pd::STATE.receiver().unwrap();
-    if let Ok(state) = pd_state_receiver
+    let pd_state = pd_state_receiver
         .changed()
-        .with_timeout(Duration::from_secs(1))
+        .with_timeout(Duration::from_secs(4))
         .await
-    {
-        match state {
-            pd::State::Good(_) => info!("USB PD negotiation complete"),
-            pd::State::Error => {
-                ui::draw_pd_error_screen(&mut display, &display_area);
-                panic!("USB PD error");
-            }
-            _ => info!("USB PD negotation timed out. Assuming DC power."),
+        .unwrap_or(pd::State::NotAttached);
+
+    match pd_state {
+        pd::State::Good(_) => info!("USB PD negotiation complete"),
+        pd::State::Error => {
+            ui::draw_pd_error_screen(&mut display, &display_area);
+            panic!("USB PD error");
         }
-    } else {
-        info!("USB PD negotation timed out. Assuming DC power.")
+        _ => info!("USB PD negotation timed out. Assuming DC power."),
     }
 
     let alloy_names: heapless::Vec<&str, 4> = profiles::PROFILES.iter().map(|p| p.alloy).collect();
@@ -142,13 +174,19 @@ async fn main(spawner: Spawner) {
 
     let mut selected_index = 0;
 
-    buzzer.set_duty_cycle_percent(50);
     buzzer.enable();
     Timer::after_millis(500).await;
     buzzer.disable();
 
     loop {
-        ui::draw_profiles(&mut display, &display_area, &alloy_names, selected_index);
+        ui::draw_profiles(
+            &mut display,
+            &display_area,
+            &alloy_names,
+            selected_index,
+            &pd_state,
+            read_vcc_voltage(&mut adc1, &mut vsys_pin),
+        );
         display.flush_screen();
 
         loop {
@@ -176,7 +214,14 @@ async fn main(spawner: Spawner) {
                 _ => unreachable!(),
             }
 
-            ui::draw_profiles(&mut display, &display_area, &alloy_names, selected_index);
+            ui::draw_profiles(
+                &mut display,
+                &display_area,
+                &alloy_names,
+                selected_index,
+                &pd_state,
+                read_vcc_voltage(&mut adc1, &mut vsys_pin),
+            );
             display.flush_screen();
         }
 
@@ -188,6 +233,7 @@ async fn main(spawner: Spawner) {
         );
         let reflow_fut = reflow(
             profiles::PROFILES[selected_index],
+            &pd_state,
             &mut adc1,
             &mut ntc_pin,
             &mut vsys_pin,
@@ -243,6 +289,19 @@ fn adc_to_voltage(adc_raw: u16, adc_max: u16) -> f32 {
     VREF * adc_raw as f32 / adc_max as f32
 }
 
+fn read_vcc_voltage(
+    adc: &mut Adc<'static, peripherals::ADC1>,
+    vsys_pin: &mut AnyAdcChannel<'_, peripherals::ADC1>,
+) -> f32 {
+    let reading = adc.blocking_read(vsys_pin, SampleTime::CYCLES640_5);
+    let voltage = adc_to_voltage(reading, 2u16.pow(14) - 1);
+
+    const R_UP: f32 = 47_000f32;
+    const R_DOWN: f32 = 4_700f32;
+
+    voltage * ((R_UP + R_DOWN) / R_DOWN)
+}
+
 /// Computes the resistance of copper at a given temperature using a quadratic
 /// polynomial model (IEC 60028 / IACS standard for annealed copper).
 ///
@@ -292,20 +351,26 @@ async fn read_ntc(
     adc: &mut Adc<'static, peripherals::ADC1>,
     ntc_pin: &mut AnyAdcChannel<'_, peripherals::ADC1>,
 ) -> f32 {
-    let mut readings = [0, 0, 0, 0, 0];
-    adc.read(
-        dma.reborrow(),
-        [(&mut *ntc_pin, SampleTime::CYCLES247_5)].into_iter(),
-        &mut readings,
-    )
-    .await;
-
+    // embassy bug; replace with a single adc.read later
+    let mut readings = [0u16; 5];
+    for r in readings.iter_mut() {
+        let mut buf = [0u16];
+        adc.read(
+            dma.reborrow(),
+            Irqs,
+            [(&mut *ntc_pin, SampleTime::CYCLES247_5)].into_iter(),
+            &mut buf,
+        )
+        .await;
+        *r = buf[0];
+    }
     readings.sort_unstable();
     adc_to_celsius(readings[2], 2u16.pow(14) - 1)
 }
 
 async fn reflow<I: display_interface::WriteOnlyDataCommand>(
     profile: &'static AlloyReflowProfile,
+    pd_state: &pd::State,
     adc: &mut Adc<'static, peripherals::ADC1>,
     ntc_pin: &mut AnyAdcChannel<'_, peripherals::ADC1>,
     vsys_pin: &mut AnyAdcChannel<'_, peripherals::ADC1>,
@@ -317,26 +382,18 @@ async fn reflow<I: display_interface::WriteOnlyDataCommand>(
     plate_pwm.set_duty_cycle(0);
     plate_pwm.enable();
 
-    let pd_state = pd::STATE.try_get().unwrap();
-
     // USB-C PD chargers typically have a maximum current limit of 5A.
     // If we're running on a plain DC supply, assume we're allowed a maximum of 10A.
     let maximum_current = match pd_state {
-        pd::State::Good(ref limits) => limits.max_current - 0.1,
-        pd::State::NotAttached => 9.9,
+        pd::State::Good(limits) => limits.max_current,
+        pd::State::NotAttached => 10.0,
         pd::State::Error => return Err(()),
     };
 
     let voltage = if let pd::State::Good(limits) = pd_state {
         limits.voltage
     } else {
-        let reading = adc.blocking_read(vsys_pin, SampleTime::CYCLES640_5);
-        let voltage = adc_to_voltage(reading, 2u16.pow(12) - 1);
-
-        const R_UP: f32 = 47_000f32;
-        const R_DOWN: f32 = 4_700f32;
-
-        voltage * ((R_UP + R_DOWN) / R_DOWN)
+        read_vcc_voltage(adc, vsys_pin)
     };
 
     let initial_temp = read_ntc(dma.reborrow(), adc, ntc_pin).await;
@@ -344,21 +401,20 @@ async fn reflow<I: display_interface::WriteOnlyDataCommand>(
     let beginning = Instant::now();
 
     let mut pid: Pid<f32> = Pid::new(0.0, 100.0);
-    pid.p(10.0, 100.0);
-    pid.i(0.5, 25.0);
+    pid.p(5.0, 100.0);
+    pid.i(0.5, 100.0);
+    pid.d(0.2, 50.0);
 
-    let mut ticker = Ticker::every(Duration::from_hz(10));
+    let mut ticker = Ticker::every(Duration::from_hz(20));
     let mut display_refresh_counter = 0u8;
     let mut previous_temp = None;
     loop {
         let raw_temp = read_ntc(dma.reborrow(), adc, ntc_pin).await;
         // EMA Filter
-        let temp = if let Some(t) = previous_temp {
-            0.3 * raw_temp + 0.7 * t
-        } else {
-            previous_temp = Some(raw_temp);
-            raw_temp
-        };
+        let temp = previous_temp
+            .map(|t| 0.5 * raw_temp + 0.5 * t)
+            .unwrap_or(raw_temp);
+        previous_temp = Some(temp);
 
         debug!("Temperature: {}°C", temp as i16);
 
@@ -388,6 +444,8 @@ async fn reflow<I: display_interface::WriteOnlyDataCommand>(
                     beginning.elapsed(),
                     &reflow_status,
                     temp,
+                    duty_cycle,
+                    read_vcc_voltage(adc, vsys_pin),
                 )
                 .unwrap();
                 display.flush_screen();
@@ -408,6 +466,7 @@ async fn reflow<I: display_interface::WriteOnlyDataCommand>(
     loop {
         let temp = read_ntc(dma.reborrow(), adc, ntc_pin).await;
         draw_cooling_screen(display, &display_area, temp).unwrap();
+        display.flush_screen();
 
         if temp < 45.0 {
             info!("Cooling done");

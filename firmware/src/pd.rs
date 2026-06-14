@@ -1,7 +1,7 @@
-use defmt::{error, info, warn};
+use defmt::{debug, error, info, warn};
 use embassy_futures::select::select;
-use embassy_stm32::Peri;
 use embassy_stm32::ucpd::{CcPull, CcSel};
+use embassy_stm32::{Peri, gpio};
 use embassy_sync::blocking_mutex::raw::ThreadModeRawMutex;
 use embassy_sync::watch::Watch;
 use embassy_time::{Duration, Timer, with_timeout};
@@ -26,6 +26,7 @@ const MAX_PD_VOLTAGE: u32 = 22;
 
 bind_interrupts!(struct Irqs {
     UCPD1 => ucpd::InterruptHandler<peripherals::UCPD1>;
+
 });
 
 #[derive(Clone, PartialEq)]
@@ -283,6 +284,7 @@ pub async fn ucpd_task(
     mut cc2: Peri<'static, peripherals::PB4>,
     mut dma1: Peri<'static, peripherals::DMA1_CH1>,
     mut dma2: Peri<'static, peripherals::DMA1_CH2>,
+    pd_flt: gpio::Input<'static>,
 ) {
     loop {
         let mut ucpd = Ucpd::new(
@@ -305,10 +307,14 @@ pub async fn ucpd_task(
                 info!("Starting PD communication on CC2 pin");
                 CcSel::CC2
             }
-            CableOrientation::DebugAccessoryMode => panic!("No PD communication in DAM"),
+            CableOrientation::DebugAccessoryMode => {
+                debug!("PD_FLT: {}", if pd_flt.is_high() { "HIGH" } else { "LOW" });
+                panic!("No PD communication in DAM");
+            }
         };
 
-        let (mut cc_phy, pd_phy) = ucpd.split_pd_phy(dma1.reborrow(), dma2.reborrow(), cc_sel);
+        let (mut cc_phy, pd_phy) =
+            ucpd.split_pd_phy(dma1.reborrow(), dma2.reborrow(), crate::Irqs, cc_sel);
 
         let driver = UcpdSinkDriver::new(pd_phy);
         let mut sink: Sink<UcpdSinkDriver<'_>, EmbassySinkTimer, _> =
@@ -316,9 +322,11 @@ pub async fn ucpd_task(
 
         match select(sink.run(), wait_detached(&mut cc_phy)).await {
             embassy_futures::select::Either::First(result) => {
+                debug!("PD_FLT: {}", if pd_flt.is_high() { "HIGH" } else { "LOW" });
                 warn!("Sink loop broken with result: {}", result)
             }
             embassy_futures::select::Either::Second(_) => {
+                debug!("PD_FLT: {}", if pd_flt.is_high() { "HIGH" } else { "LOW" });
                 info!("Detached");
                 continue;
             }

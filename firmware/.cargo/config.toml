@@ -7,8 +7,8 @@ target = "thumbv7em-none-eabihf"
 [target.thumbv7em-none-eabihf]
 rustflags = [
   "-C", "target-cpu=cortex-m4",
-  "-C", "target-feature=+vfp4,+dsp"
+  "-C", "target-feature=+dsp"
 ]
 
 [env]
-DEFMT_LOG = "trace"
+DEFMT_LOG = "debug"

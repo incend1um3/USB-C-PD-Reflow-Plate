@@ -82,4 +82,16 @@ pub static SN42BI58: AlloyReflowProfile = AlloyReflowProfile {
     phases: SN42BI58_PHASES,
 };
 
-pub static PROFILES: [&AlloyReflowProfile; 1] = [&SN42BI58];
+#[rustfmt::skip]
+const SN64BI35AG1_PHASES: &[ReflowPhase] = &[
+    ReflowPhase { name: ReflowPhaseName::Preheat, duration_secs: 90, end_temp: 130 },
+    ReflowPhase { name: ReflowPhaseName::Soak,    duration_secs: 60, end_temp: 150 },
+    ReflowPhase { name: ReflowPhaseName::Reflow,  duration_secs: 30, end_temp: 185 },
+];
+
+pub static SN64BI35AG1: AlloyReflowProfile = AlloyReflowProfile {
+    alloy: "Sn64Bi35Ag1",
+    phases: SN64BI35AG1_PHASES,
+};
+
+pub static PROFILES: [&AlloyReflowProfile; 2] = [&SN42BI58, &SN64BI35AG1];
