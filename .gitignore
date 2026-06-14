@@ -5,7 +5,9 @@ fp-info-cache
 *.kicad_sch-bak
 *.kicad_pcb-bak
 *kicad_pro.lck
+*kicad_pcb.lck
 .history/
+_autosave-*
 
 # Rust / Cargo
 firmware/target/
